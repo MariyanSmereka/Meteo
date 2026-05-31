@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Метеостанція - Панель керування</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-color: #101216;
+      --card-bg: #1c1e24;
+      --text-main: #e3e4e6;
+      --text-muted: #9b9ea4;
+      --accent: #2185d0;
+      --border-color: #2d3139;
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0; padding: 15px;
+      background-color: var(--bg-color); color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .dashboard { width: 100%; max-width: 1400px; margin: auto; }
+    .header { font-size: 20px; font-weight: 500; margin-bottom: 20px; padding-left: 5px; }
+
+    .top-widgets {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 20px; width: 100%;
+    }
+
+    .widget {
+      background: var(--card-bg); border-radius: 12px; padding: 12px;
+      border: 1px solid var(--border-color); cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s; width: 100%;
+    }
+    .widget:hover, .widget.active { border-color: var(--accent); transform: translateY(-2px); }
+
+    .widget-header { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+    .widget-header i {
+      font-size: 14px; width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;
+    }
+
+    .ico-tout { background-color: #1f77b4; }
+    .ico-hout { background-color: #ff7f0e; }
+    .ico-press { background-color: #2ca02c; }
+    .ico-thome { background-color: #d62728; }
+    .ico-hhome { background-color: #9467bd; }
+    .ico-tbase { background-color: #8c564b; }
+    .ico-hbase { background-color: #e377c2; }
+
+    .widget-value { font-size: 22px; font-weight: 600; margin-bottom: 5px; }
+    .widget-sparkline { height: 30px; width: 100%; position: relative; }
+
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; width: 100%; }
+    .panel { background: var(--card-bg); border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); width: 100%; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; width: 100%; }
+    .panel-title { font-size: 16px; font-weight: 500; }
+
+    .period-buttons { display: flex; background: #252830; padding: 3px; border-radius: 8px; flex-shrink: 0; }
+    .period-buttons button {
+      background: transparent; border: none; color: var(--text-muted);
+      padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;
+    }
+    .period-buttons button.active { background: var(--accent); color: white; font-weight: 500; }
+
+    .chart-container { height: 380px; width: 100%; position: relative; }
+
+    .stats-list { display: flex; flex-direction: column; gap: 14px; margin-top: 15px; }
+    .stats-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #252830; }
+    .stats-label { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 14px; }
+    .stats-label i { width: 16px; text-align: center; }
+    .stats-value { font-size: 16px; font-weight: 500; }
+
+    .info-row { display: flex; gap: 12px; margin-top: 12px; color: var(--text-muted); font-size: 13px; }
+    .layout-right { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+
+    @media (max-width: 900px) {
+      body { padding: 8px; }
+      .top-widgets { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; margin-bottom: 15px; }
+      .widget { padding: 12px 10px; }
+      .widget-value { font-size: 20px; margin-bottom: 0px; }
+      .widget-sparkline { display: none !important; }
+      .main-grid { grid-template-columns: 1fr !important; }
+      .panel { padding: 12px; width: 100% !important; }
+      .panel-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .period-buttons { width: 100%; }
+      .period-buttons button { flex: 1; text-align: center; padding: 8px 2px; font-size: 12px; }
+      .chart-container { height: 260px; width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="dashboard">
+  <div class="header">Метеостанція</div>
+
+  <div class="top-widgets">
+    <div class="widget active" id="w-t_out" onclick="selectSensor('t_out')">
+      <div class="widget-header"><i class="fa-solid fa-temperature-half ico-tout"></i> Темп. Вулиця</div>
+      <div class="widget-value" id="val-t_out">--</div>
+      <div class="widget-sparkline"><canvas id="spark-t_out"></canvas></div>
+    </div>
+    <div class="widget" id="w-h_out" onclick="selectSensor('h_out')">
+      <div class="widget-header"><i class="fa-solid fa-droplet ico-hout"></i> Волог. Вулиця</div>
+      <div class="widget-value" id="val-h_out">--</div>
+      <div class="widget-sparkline"><canvas id="spark-h_out"></canvas></div>
+    </div>
+    <div class="widget" id="w-pressure" onclick="selectSensor('pressure')">
+      <div class="widget-header"><i class="fa-solid fa-gauge-high ico-press"></i> Тиск</div>
+      <div class="widget-value" id="val-pressure">--</div>
+      <div class="widget-sparkline"><canvas id="spark-pressure"></canvas></div>
+    </div>
+    <div class="widget" id="w-t_home" onclick="selectSensor('t_home')">
+      <div class="widget-header"><i class="fa-solid fa-house-chimney ico-thome"></i> Темп. Будинок</div>
+      <div class="widget-value" id="val-t_home">--</div>
+      <div class="widget-sparkline"><canvas id="spark-t_home"></canvas></div>
+    </div>
+    <div class="widget" id="w-h_home" onclick="selectSensor('h_home')">
+      <div class="widget-header"><i class="fa-solid fa-droplet ico-hhome"></i> Волог. Будинок</div>
+      <div class="widget-value" id="val-h_home">--</div>
+      <div class="widget-sparkline"><canvas id="spark-h_home"></canvas></div>
+    </div>
+    <div class="widget" id="w-t_basement" onclick="selectSensor('t_basement')">
+      <div class="widget-header"><i class="fa-solid fa-temperature-arrow-down ico-tbase"></i> Темп. Підвал</div>
+      <div class="widget-value" id="val-t_basement">--</div>
+      <div class="widget-sparkline"><canvas id="spark-t_basement"></canvas></div>
+    </div>
+    <div class="widget" id="w-h_basement" onclick="selectSensor('h_basement')">
+      <div class="widget-header"><i class="fa-solid fa-droplet ico-hbase"></i> Волог. Підвал</div>
+      <div class="widget-value" id="val-h_basement">--</div>
+      <div class="widget-sparkline"><canvas id="spark-h_basement"></canvas></div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title" id="main-chart-title">Температура на вулиці</div>
+        <div class="period-buttons">
+          <button id="p-24h" class="active" onclick="changePeriod('24h')">24 год</button>
+          <button id="p-7d" onclick="changePeriod('7d')">7 днів</button>
+          <button id="p-30d" onclick="changePeriod('30d')">30 днів</button>
+          <button id="p-year" onclick="changePeriod('year')">Рік</button>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+
+    <div class="layout-right">
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom: 15px;">Статистика</div>
+        <div class="stats-list">
+          <div class="stats-item">
+            <div class="stats-label"><i class="fa-solid fa-bolt" style="color: #ffcc00;"></i> Поточне значення</div>
+            <div class="stats-value" id="stat-current">--</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-label"><i class="fa-solid fa-arrow-down" style="color: #36a2eb;"></i> Мінімальне</div>
+            <div class="stats-value" id="stat-min">--</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-label"><i class="fa-solid fa-arrow-up" style="color: #ff6384;"></i> Максимальне</div>
+            <div class="stats-value" id="stat-max">--</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-label"><i class="fa-solid fa-wave-square" style="color: #4bc0c0;"></i> Середнє значення</div>
+            <div class="stats-value" id="stat-avg">--</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom: 10px;">Діагностика даних</div>
+        <div class="info-row"><i class="fa-regular fa-clock" style="margin-top:2px;"></i> <span>Останнє оновлення:</span> <span id="sync-time" style="font-weight:500; color:var(--text-main);">Завантаження...</span></div>
+        <div class="info-row"><i class="fa-solid fa-rotate" style="margin-top:2px;"></i> <span>Періодичність опитування: кожні 5 хвилин</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbxNuyzO_w1428zEbV_3Aa8SzMt9OUR9lDw2H2YITh-AAFcCuVEutkc8VNnl74l_Ih3W/exec";
+  
+  let currentPeriod = "24h";
+  let currentSensor = "t_out";
+  let mainChart = null;
+  let sparkCharts = {};
+  let cachedData = null; 
+
+  const sensorNames = {
+    t_out: "Температура на вулиці", 
+    h_out: "Вологість на вулиці", 
+    pressure: "Атмосферний тиск",
+    t_home: "Температура в будинку", 
+    h_home: "Вологість в будинку", 
+    t_basement: "Температура в підвалі", 
+    h_basement: "Вологість в підвалі"
+  };
+
+  const units = { t_out: "°C", h_out: "%", pressure: " мм", t_home: "°C", h_home: "%", t_basement: "°C", h_basement: "%" };
+  const colors = { t_out: "#1f77b4", h_out: "#ff7f0e", pressure: "#2ca02c", t_home: "#d62728", h_home: "#9467bd", t_basement: "#8c564b", h_basement: "#e377c2" };
+
+  // Тільки 1 єдиний мережевий запит для всього дашборду разом
+  async function loadAllData(period = currentPeriod) {
+    try {
+      const response = await fetch(`${API}?mode=all_sensors&period=${period}`);
+      return await response.json();
+    } catch (e) { 
+      console.error("Помилка з'єднання", e);
+      return null; 
+    }
+  }
+
+  function renderSparkline(type, values) {
+    const ctx = document.getElementById(`spark-${type}`);
+    if (!ctx || window.innerWidth <= 900) return;
+    if (sparkCharts[type]) sparkCharts[type].destroy();
+
+    sparkCharts[type] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: values.map((_, i) => i),
+        datasets: [{ data: values, borderColor: colors[type], borderWidth: 1.5, fill: false, pointRadius: 0 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: false, tooltip: false },
+        scales: { x: { display: false }, y: { display: false } },
+        animation: false
+      }
+    });
+  }
+
+  function renderMainChart(data) {
+    const ctx = document.getElementById("mainChart");
+    if (mainChart) mainChart.destroy();
+
+    const isMobile = window.innerWidth < 600;
+    let maxTicks = isMobile ? 6 : 18;
+
+    const formattedLabels = data.labels.map(label => {
+      const parts = label.split(" ");
+      if (currentPeriod === "24h") {
+        if (parts[1]) {
+          const timeParts = parts[1].split(":");
+          return timeParts[0] + ":" + timeParts[1];
+        }
+        return label;
+      } else {
+        return parts[0];
+      }
+    });
+
+    mainChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: formattedLabels,
+        datasets: [{
+          label: sensorNames[currentSensor],
+          data: data.values,
+          borderColor: colors[currentSensor],
+          backgroundColor: colors[currentSensor] + "10",
+          tension: 0.1, fill: true, pointRadius: currentPeriod === "24h" ? 1 : 0
+        }]
+      },
+      options: {
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: { legend: false },
+        scales: {
+          x: { 
+            ticks: { 
+              color: "#8e929a", maxRotation: 90, minRotation: 90, 
+              maxTicksLimit: maxTicks, padding: 8
+            }, 
+            grid: { color: "#232731" } 
+          },
+          y: { ticks: { color: "#8e929a" }, grid: { color: "#232731" } }
+        }
+      }
+    });
+  }
+
+  async function initializeDashboard(forceFetch = true) {
+    if (forceFetch || !cachedData) {
+      const allData = await loadAllData(currentPeriod);
+      if (!allData || allData.error) return;
+      cachedData = allData;
+    }
+
+    const sensors = Object.keys(sensorNames);
+
+    sensors.forEach((sensor) => {
+      const data = cachedData[sensor];
+      if (data) {
+        document.getElementById(`val-${sensor}`).innerText = data.current + units[sensor];
+        renderSparkline(sensor, data.values);
+        
+        if (sensor === currentSensor) {
+          updateStatsPanel(data);
+          renderMainChart(data);
+        }
+      }
+    });
+  }
+
+  function updateStatsPanel(data) {
+    const u = units[currentSensor];
+    document.getElementById("stat-current").innerText = data.current + u;
+    document.getElementById("stat-min").innerText = data.min + u;
+    document.getElementById("stat-max").innerText = data.max + u;
+    document.getElementById("stat-avg").innerText = data.avg + u;
+    
+    if (data.labels && data.labels.length > 0) {
+      document.getElementById("sync-time").innerText = data.labels[data.labels.length - 1];
+    }
+  }
+
+  function selectSensor(sensor) {
+    currentSensor = sensor;
+    document.querySelectorAll(".widget").forEach(w => w.classList.remove("active"));
+    document.getElementById(`w-${sensor}`).classList.add("active");
+    document.getElementById("main-chart-title").innerText = sensorNames[sensor];
+    initializeDashboard(false); // Миттєве перемикання з кешу
+  }
+
+  function changePeriod(period) {
+    currentPeriod = period;
+    document.querySelectorAll(".period-buttons button").forEach(b => b.classList.remove("active"));
+    document.getElementById(`p-${period}`).classList.add("active");
+    initializeDashboard(true); 
+  }
+
+  initializeDashboard(true);
+  setInterval(() => initializeDashboard(true), 300000);
+</script>
+
+</body>
+</html>

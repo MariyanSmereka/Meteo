@@ -162,13 +162,19 @@
             <div class="stats-label"><i class="fa-solid fa-bolt" style="color: #ffcc00;"></i> Поточне значення</div>
             <div class="stats-value" id="stat-current">--</div>
           </div>
-          <div class="stats-item">
-            <div class="stats-label"><i class="fa-solid fa-arrow-down" style="color: #36a2eb;"></i> Мінімальне</div>
-            <div class="stats-value" id="stat-min">--</div>
+          <div class="stats-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+              <div class="stats-label"><i class="fa-solid fa-arrow-down" style="color: #36a2eb;"></i> Мінімальне</div>
+              <div class="stats-value" id="stat-min">--</div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); padding-left: 26px; font-style: italic;" id="stat-min-time">--</div>
           </div>
-          <div class="stats-item">
-            <div class="stats-label"><i class="fa-solid fa-arrow-up" style="color: #ff6384;"></i> Максимальне</div>
-            <div class="stats-value" id="stat-max">--</div>
+          <div class="stats-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+              <div class="stats-label"><i class="fa-solid fa-arrow-up" style="color: #ff6384;"></i> Максимальне</div>
+              <div class="stats-value" id="stat-max">--</div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); padding-left: 26px; font-style: italic;" id="stat-max-time">--</div>
           </div>
           <div class="stats-item">
             <div class="stats-label"><i class="fa-solid fa-wave-square" style="color: #4bc0c0;"></i> Середнє значення</div>
@@ -187,7 +193,7 @@
 </div>
 
 <script>
-  const API = "https://script.google.com/macros/s/AKfycbxNuyzO_w1428zEbV_3Aa8SzMt9OUR9lDw2H2YITh-AAFcCuVEutkc8VNnl74l_Ih3W/exec";
+  const API = "https://script.google.com/macros/s/AKfycbxiqD6l0Uu9QzxnxSeQF6RaHUzl7hFQAmcrac2u7uyrJ28Opx5ZDe_RVgU9-eLsHT-U/exec";
   
   let currentPeriod = "24h";
   let currentSensor = "t_out";
@@ -208,7 +214,6 @@
   const units = { t_out: "°C", h_out: "%", pressure: " мм", t_home: "°C", h_home: "%", t_basement: "°C", h_basement: "%" };
   const colors = { t_out: "#1f77b4", h_out: "#ff7f0e", pressure: "#2ca02c", t_home: "#d62728", h_home: "#9467bd", t_basement: "#8c564b", h_basement: "#e377c2" };
 
-  // Тільки 1 єдиний мережевий запит для всього дашборду разом
   async function loadAllData(period = currentPeriod) {
     try {
       const response = await fetch(`${API}?mode=all_sensors&period=${period}`);
@@ -315,8 +320,13 @@
   function updateStatsPanel(data) {
     const u = units[currentSensor];
     document.getElementById("stat-current").innerText = data.current + u;
+    
     document.getElementById("stat-min").innerText = data.min + u;
+    document.getElementById("stat-min-time").innerText = data.minTime ? `Зафіксовано: ${data.minTime}` : "--";
+    
     document.getElementById("stat-max").innerText = data.max + u;
+    document.getElementById("stat-max-time").innerText = data.maxTime ? `Зафіксовано: ${data.maxTime}` : "--";
+    
     document.getElementById("stat-avg").innerText = data.avg + u;
     
     if (data.labels && data.labels.length > 0) {
@@ -329,7 +339,7 @@
     document.querySelectorAll(".widget").forEach(w => w.classList.remove("active"));
     document.getElementById(`w-${sensor}`).classList.add("active");
     document.getElementById("main-chart-title").innerText = sensorNames[sensor];
-    initializeDashboard(false); // Миттєве перемикання з кешу
+    initializeDashboard(false); 
   }
 
   function changePeriod(period) {
